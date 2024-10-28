@@ -5,8 +5,7 @@
  */
 #include "csapp.h"
 
-#define A
-
+void echo(int connfd);
 void doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
@@ -35,9 +34,7 @@ int main(int argc, char **argv)
         connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen); //line:netp:tiny:accept
         Getnameinfo((SA *) &clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
         printf("Accepted connection from (%s, %s)\n", hostname, port);
-        
-
-
+        // echo(connfd);
         doit(connfd);                                             //line:netp:tiny:doit
         Close(connfd);                                            //line:netp:tiny:close
     }
@@ -46,46 +43,19 @@ int main(int argc, char **argv)
 
 /* 11.6 (A)*/
 #ifdef A
-// 11.6.(A)
-void doit(int fd)
+void echo(int connfd)
 {
-  char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
-  rio_t rio;
+    size_t n;
+    char buf[MAXLINE];
+    rio_t rio;
 
-  // 클라이언트 요청 초기화
-  Rio_readinitb(&rio, fd);
-  
-  // 요청 라인 읽기
-  Rio_readlineb(&rio, buf, MAXLINE);
-  printf("Request line: %s", buf);  // 서버 콘솔에 요청 출력
-
-  // 응답 헤더에 HTTP 버전과 상태 코드 추가
-  sprintf(buf, "HTTP/1.0 200 OK\r\n");
-  Rio_writen(fd, buf, strlen(buf));
-
-  // 서버 헤더와 빈 줄 추가 (응답 헤더의 끝)
-  sprintf(buf, "Server: Tiny Echo Server\r\n\r\n");
-  Rio_writen(fd, buf, strlen(buf));
-
-  // 에코 기능 추가: 요청 라인과 헤더를 클라이언트에 그대로 반환
-  sprintf(buf, "Request line: ");
-  Rio_writen(fd, buf, strlen(buf));
-  
-  // 첫 번째 요청 라인 다시 보내기
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Rio_writen(fd, buf, strlen(buf));
-  
-  // 요청 헤더 읽고 에코 기능 추가
-  while (strcmp(buf, "\r\n"))
-  { 
-    Rio_readlineb(&rio, buf, MAXLINE);
-    printf("Request header: %s", buf); // 서버 콘솔에 헤더 출력
-    Rio_writen(fd, buf, strlen(buf));  // 클라이언트에 헤더 그대로 전송
-  }
-  
-  // 응답을 끝내기 위해 빈 줄 전송
-  strcpy(buf, "\r\n");
-  Rio_writen(fd, buf, strlen(buf));
+    Rio_readinitb(&rio, connfd);
+    while ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0)
+    {
+        printf("server received %d bytes\n",(int)n);
+        Rio_writen(connfd, buf, n);
+    }
+    
 }
 #endif
 
@@ -93,7 +63,6 @@ void doit(int fd)
  * doit - handle one HTTP request/response transaction
  */
 /* $begin doit */
-#ifdef E
 void doit(int fd) 
 {
     int is_static;
@@ -105,14 +74,9 @@ void doit(int fd)
 
     /* Read request line and headers */
     Rio_readinitb(&rio, fd);
-    while ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0)
-    {
-        printf("server received %d bytes\n",(int)n);
-        Rio_writen(fd, buf, n);
-    }
-    if (!Rio_readlineb(&rio, buf, MAXLINE))  //line:netp:doit:readrequest
-        return;
-    printf("%s", buf);
+    Rio_readlineb(&rio, buf, MAXLINE);
+    printf("Request headers:\n");
+    printf("%s",buf);
     sscanf(buf, "%s %s %s", method, uri, version);       //line:netp:doit:parserequest
     if (strcasecmp(method, "GET")) {                     //line:netp:doit:beginrequesterr
         clienterror(fd, method, "501", "Not Implemented",
@@ -146,7 +110,6 @@ void doit(int fd)
 	serve_dynamic(fd, filename, cgiargs);            //line:netp:doit:servedynamic
     }
 }
-#endif
 /* $end doit */
 
 
