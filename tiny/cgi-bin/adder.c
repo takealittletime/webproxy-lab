@@ -5,35 +5,29 @@
 #include "csapp.h"
 
 int main(void) {
-  char *buf, *p;
-  char arg1[MAXLINE], arg2[MAXLINE], content[MAXLINE];
-  int n1 = 0, n2 = 0;
+  FILE *html_file;
+  char content[MAXLINE];
 
-  /* Extract the two arguments */
-  if ((buf = getenv("QUERY_STRING")) != NULL){
-    p = strchr(buf, '&');
-    *p = '\0';
-    strcpy(arg1, buf);
-    strcpy(arg2, p+1);
-    n1 = atoi(arg1);
-    n2 = atoi(arg2);
+  html_file = fopen("cgi-bin/adder.html","r");
+  if (html_file == NULL)
+  {
+    sprintf(content, "Content-type: text/html\r\n\r\n");
+    sprintf(content + strlen(content), "<html><body><p>Error: adder.html not found</p></body></html>");
+    printf("%s",content);
+    fflush(stdout);
+    exit(1);
   }
 
-  /* Make the response body */
-  sprintf(content, "QUERY_STRING=%s",buf);
-  sprintf(content, "Welcome to add.com: ");
-  sprintf(content, "%sTHE Internet addition portal.\r\n<p>",content);
-  sprintf(content, "%sThe answer is: %d + %d = %d\r\n<p>",
-    content, n1, n2, n1 + n2);
-  sprintf(content, "%sThanks fpr visiting!\r\n", content);
+  printf("Connection: closer\r\n");
+  printf("Connect-type: text/html\r\n\r\n");
 
-  /* Generate the HTTP response */
-  printf("Connection: close\r\n");
-  printf("Content-length: %d\r\n", (int)strlen(content));
-  printf("Content-type: text/html\r\n\r\n");
-  printf("%s", content);
+  while (fgets(content,MAXLINE,html_file) != NULL)
+  {
+    printf("%s", content);
+  }
+
   fflush(stdout);
-
+  fclose(html_file);
   exit(0);
 }
 /* $end adder */
