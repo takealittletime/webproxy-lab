@@ -10,6 +10,7 @@ void doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
 void serve_static(int fd, char *filename, int filesize);
+void serve_static_head(int fd, char *filename, int filesize);
 void get_filetype(char *filename, char *filetype);
 void serve_dynamic(int fd, char *filename, char *cgiargs);
 void clienterror(int fd, char *cause, char *errnum, 
@@ -60,7 +61,7 @@ void doit(int fd)
     printf("Request headers:\n");
     printf("%s",buf);
     sscanf(buf, "%s %s %s", method, uri, version);       //line:netp:doit:parserequest
-    if (strcasecmp(method, "GET")) {                     //line:netp:doit:beginrequesterr
+    if (strcasecmp(method, "GET") != 0 && strcasecmp(method, "HEAD")!=0) {                     //line:netp:doit:beginrequesterr
         clienterror(fd, method, "501", "Not Implemented",
                     "Tiny does not implement this method");
         return;
@@ -81,7 +82,14 @@ void doit(int fd)
 			"Tiny couldn't read the file");
 	    return;
 	}
-	serve_static(fd, filename, sbuf.st_size);        //line:netp:doit:servestatic
+    if (strcasecmp(method, "GET") == 0){
+        serve_static(fd, filename, sbuf.st_size);        //line:netp:doit:servestatic
+    }
+
+    else{
+        serve_static_head(fd,filename, sbuf.st_size);
+    }
+	
     }
     else { /* Serve dynamic content */
 	if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) { //line:netp:doit:executable
@@ -171,6 +179,23 @@ void serve_static(int fd, char *filename, int filesize)
     Close(srcfd);                           //line:netp:servestatic:close
     Rio_writen(fd, srcp, filesize);         //line:netp:servestatic:write
     Munmap(srcp, filesize);                 //line:netp:servestatic:munmap
+}
+
+void serve_static_head(int fd, char *filename, int filesize) 
+{
+    int srcfd;
+    char *srcp, filetype[MAXLINE], buf[MAXBUF];
+ 
+    /* Send response headers to client */
+    get_filetype(filename, filetype);       //line:netp:servestatic:getfiletype
+    sprintf(buf, "HTTP/1.0 200 OK\r\n");    //line:netp:servestatic:beginserve
+    sprintf(buf, "%sServer: Tiny Web Server\r\n", buf);
+    sprintf(buf, "%sConnection: close\r\n", buf);
+    sprintf(buf, "%sContent-length: %d\r\n", buf, filesize);
+    sprintf(buf, "%sContent-type: %s\r\n\r\n", buf, filetype);
+    Rio_writen(fd, buf, strlen(buf));       //line:netp:servestatic:endserve
+    printf("Response headers:\n");
+    printf("%s", buf);
 }
 
 /*
